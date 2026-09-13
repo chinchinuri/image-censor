@@ -3,232 +3,500 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Очищувач EXIF та Геоданих</title>
+    <title>OpSec Редактор & EXIF Cleaner</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --border: #e2e8f0;
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 2rem 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge-safe {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-group {
+            display: flex;
+            background: #0b0f19;
+            border-radius: 6px;
+            padding: 2px;
+            border: 1px solid var(--border);
+        }
+
+        button, .file-btn {
+            background: transparent;
+            color: var(--text-main);
+            border: none;
+            padding: 0.5rem 0.85rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.2s;
+        }
+
+        .file-btn {
+            background: var(--accent);
+        }
+        .file-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        button.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-action {
+            background: #334155;
+        }
+        .btn-action:hover {
+            background: #475569;
+        }
+
+        .btn-download {
+            background: var(--success);
+            color: white;
+            font-weight: 600;
+        }
+        .btn-download:hover {
+            background: #059669;
+        }
+
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding: 0 0.5rem;
+        }
+
+        input[type="range"] {
+            accent-color: var(--accent);
+            cursor: pointer;
+            width: 80px;
+        }
+
+        main {
+            flex: 1;
             display: flex;
             justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            position: relative;
+            overflow: auto;
         }
 
-        .container {
-            max-width: 600px;
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+        }
+
+        #imageCanvas {
+            display: block;
+            max-width: 100%;
+            max-height: calc(100vh - 150px);
+            object-fit: contain;
+            cursor: crosshair;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
             width: 100%;
-            background: var(--card-bg);
-            padding: 2rem;
+            height: 100%;
+        }
+
+        /* Початковий екран завантаження */
+        .drop-area {
+            border: 2px dashed var(--border);
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        h1 {
-            font-size: 1.5rem;
-            margin-top: 0;
+            padding: 3.5rem 2rem;
             text-align: center;
-        }
-
-        p.subtitle {
-            text-align: center;
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .drop-zone {
-            border: 2px dashed var(--primary);
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            background: var(--panel-bg);
             cursor: pointer;
-            background: #eff6ff;
             transition: all 0.2s ease;
         }
 
-        .drop-zone.dragover {
-            background: #dbeafe;
-            border-color: var(--primary-hover);
+        .drop-area.dragover {
+            border-color: var(--accent);
+            background: rgba(37, 99, 235, 0.1);
         }
 
-        .drop-zone p {
-            margin: 0;
-            font-weight: 500;
+        .drop-area h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-area p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 1.25rem;
         }
 
         #fileInput {
             display: none;
         }
 
-        .file-list {
-            margin-top: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem;
+        .hint {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            background: #fdfdfd;
-        }
-
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            overflow: hidden;
-        }
-
-        .file-info img {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 4px;
-        }
-
-        .file-name {
-            font-size: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 250px;
-        }
-
-        .btn-download {
-            background: var(--primary);
-            color: white;
-            text-decoration: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            transition: background 0.2s;
-        }
-
-        .btn-download:hover {
-            background: var(--primary-hover);
-        }
-
-        .badge {
-            background: #dcfce7;
-            color: #15803d;
-            font-size: 0.7rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-weight: 600;
+            padding: 0.4rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            display: none;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🛡️ Очищення EXIF та Геоданих</h1>
-    <p class="subtitle">100% приватно: вся обробка відбувається у вашому браузері без завантаження на сервер.</p>
+    <header>
+        <div class="logo">
+            🛡️ OpSec Редактор <span class="badge-safe">Client-Side (Офлайн)</span>
+        </div>
 
-    <div class="drop-zone" id="dropZone">
-        <p>Натисніть або перетягніть сюди фото (JPG, PNG, WebP)</p>
-        <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp" multiple>
-    </div>
+        <div class="toolbar" id="toolbar" style="display: none;">
+            <!-- Режими обробки -->
+            <div class="btn-group">
+                <button class="tool-btn active" data-mode="pixelate" title="Пікселізувати прямокутник">🔲 Пікселі</button>
+                <button class="tool-btn" data-mode="blur" title="Розмити виділену область">🌫️ Розмиття</button>
+                <button class="tool-btn" data-mode="blackout" title="Суцільний чорний колір">⬛ Цензура</button>
+            </div>
 
-    <div class="file-list" id="fileList"></div>
-</div>
+            <!-- Слайдер інтенсивності -->
+            <div class="slider-control" id="strengthControl">
+                <span>Сила:</span>
+                <input type="range" id="strengthSlider" min="5" max="50" value="15">
+            </div>
 
-<script>
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const fileList = document.getElementById('fileList');
+            <!-- Керування -->
+            <button class="btn-action" id="undoBtn" title="Скасувати останню дію (Ctrl+Z)">↩️ Скасувати</button>
+            <button class="btn-action" id="resetBtn" title="Скинути всі зміни">🔄 Початкове</button>
 
-    dropZone.addEventListener('click', () => fileInput.click());
+            <!-- Завантаження нового / збереження -->
+            <label class="file-btn" title="Відкрити інше фото">
+                📂 Нове
+                <input type="file" id="changeFileInput" accept="image/jpeg, image/png, image/webp">
+            </label>
+            <button class="btn-download" id="downloadBtn">💾 Зберегти без EXIF</button>
+        </div>
+    </header>
 
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
+    <main>
+        <!-- Зона завантаження (Dropzone) -->
+        <div class="drop-area" id="dropArea">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem;">📷</div>
+            <h2>Виберіть або перетягніть фото</h2>
+            <p>Метадані (EXIF/GPS) буде очищено автоматично.<br>Ви зможете замаскувати обличчя, шеврони чи екрани перед збереженням.</p>
+            <label class="file-btn" style="display: inline-block;">
+                Обрати файл
+                <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp">
+            </label>
+        </div>
 
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        <!-- Робочий Canvas -->
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="imageCanvas"></canvas>
+            <canvas id="overlayCanvas"></canvas>
+        </div>
+    </main>
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-            handleFiles(e.dataTransfer.files);
-        }
-    });
+    <div class="hint" id="statusHint">Виділіть мишкою прямокутну область на зображенні</div>
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleFiles(e.target.files);
-        }
-    });
+    <script>
+        // DOM елементи
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const changeFileInput = document.getElementById('changeFileInput');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const canvas = document.getElementById('imageCanvas');
+        const overlay = document.getElementById('overlayCanvas');
+        const toolbar = document.getElementById('toolbar');
+        const statusHint = document.getElementById('statusHint');
+        const strengthSlider = document.getElementById('strengthSlider');
+        const strengthControl = document.getElementById('strengthControl');
+        const undoBtn = document.getElementById('undoBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const toolBtns = document.querySelectorAll('.tool-btn');
 
-    async function handleFiles(files) {
-        for (const file of files) {
-            if (!file.type.startsWith('image/')) continue;
-            await processImage(file);
-        }
-    }
+        const ctx = canvas.getContext('2d');
+        const oCtx = overlay.getContext('2d');
 
-    function processImage(file) {
-        return new Promise((resolve) => {
+        // Стан додатку
+        let currentMode = 'pixelate';
+        let originalImage = null;
+        let originalFileName = 'image.jpg';
+        let history = []; // Історія для Undo
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+
+        // Обробка Drag & Drop
+        dropArea.addEventListener('click', () => fileInput.click());
+        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
+        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) loadImage(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
+        changeFileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
+
+        // Завантаження зображення
+        function loadImage(file) {
+            if (!file.type.startsWith('image/')) return;
+            originalFileName = file.name;
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
 
             img.onload = () => {
-                const canvas = document.createElement('canvas');
+                originalImage = img;
+                // Налаштування розмірів полотна до рідної роздільної здатності фото
                 canvas.width = img.naturalWidth;
                 canvas.height = img.naturalHeight;
+                overlay.width = img.naturalWidth;
+                overlay.height = img.naturalHeight;
 
-                const ctx = canvas.getContext('2d');
+                // Перемальовуємо (при цьому автоматично втрачається весь EXIF)
                 ctx.drawImage(img, 0, 0);
 
-                // Отримуємо чистий Blob без EXIF
-                const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-                canvas.toBlob((blob) => {
-                    const cleanUrl = URL.createObjectURL(blob);
-                    displayResult(file.name, cleanUrl, outputType);
-                    URL.revokeObjectURL(objectUrl);
-                    resolve();
-                }, outputType, 0.95);
+                // Ініціалізація історії
+                history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+
+                // Перемикання інтерфейсу
+                dropArea.style.display = 'none';
+                canvasWrapper.style.display = 'block';
+                toolbar.style.display = 'flex';
+                statusHint.style.display = 'block';
+
+                URL.revokeObjectURL(objectUrl);
             };
-
             img.src = objectUrl;
+        }
+
+        // Перемикання інструментів
+        toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                strengthControl.style.display = (currentMode === 'blackout') ? 'none' : 'flex';
+            });
         });
-    }
 
-    function displayResult(originalName, cleanUrl, type) {
-        const ext = type === 'image/png' ? '.png' : '.jpg';
-        const cleanName = 'clean_' + originalName.replace(/\.[^/.]+$/, "") + ext;
+        // Конвертація координат миші/екрану в координати канвасу (з урахуванням масштабування)
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
 
-        const item = document.createElement('div');
-        item.className = 'file-item';
-        item.innerHTML = `
-            <div class="file-info">
-                <img src="${cleanUrl}" alt="preview">
-                <div>
-                    <div class="file-name">${originalName}</div>
-                    <span class="badge">EXIF видалено</span>
-                </div>
-            </div>
-            <a href="${cleanUrl}" download="${cleanName}" class="btn-download">Завантажити</a>
-        `;
-        fileList.prepend(item);
-    }
-</script>
+        // Малювання виділення (Mouse Events)
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const coords = getCanvasCoords(e);
+            startX = coords.x;
+            startY = coords.y;
+        });
 
+        window.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const coords = getCanvasCoords(e);
+            
+            // Очищення overlay канвасу та малювання рамки виділення
+            oCtx.clearRect(0, 0, overlay.width, overlay.height);
+            oCtx.strokeStyle = '#2563eb';
+            oCtx.lineWidth = Math.max(2, canvas.width / 500);
+            oCtx.setLineDash([6, 6]);
+            oCtx.strokeRect(startX, startY, coords.x - startX, coords.y - startY);
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            oCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+            const coords = getCanvasCoords(e);
+            const x = Math.min(startX, coords.x);
+            const y = Math.min(startY, coords.y);
+            const w = Math.abs(coords.x - startX);
+            const h = Math.abs(coords.y - startY);
+
+            // Ігноруємо випадкові дрібні кліки (менше 4px)
+            if (w > 4 && h > 4) {
+                applyEffect(x, y, w, h);
+            }
+        });
+
+        // Застосування обраного ефекту на область (x, y, w, h)
+        function applyEffect(x, y, w, h) {
+            const strength = parseInt(strengthSlider.value, 10);
+
+            if (currentMode === 'pixelate') {
+                // Пікселізація: зменшуємо фрагмент і малюємо назад без згладжування
+                const sampleSize = Math.max(2, Math.floor(strength * (canvas.width / 1000)));
+                const offCanvas = document.createElement('canvas');
+                const offW = Math.max(1, Math.floor(w / sampleSize));
+                const offH = Math.max(1, Math.floor(h / sampleSize));
+                
+                offCanvas.width = offW;
+                offCanvas.height = offH;
+                const offCtx = offCanvas.getContext('2d');
+
+                offCtx.drawImage(canvas, x, y, w, h, 0, 0, offW, offH);
+
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(offCanvas, 0, 0, offW, offH, x, y, w, h);
+                ctx.imageSmoothingEnabled = true;
+
+            } else if (currentMode === 'blur') {
+                // Розмиття через clip та фільтр
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(x, y, w, h);
+                ctx.clip();
+                const blurRadius = Math.max(2, Math.floor(strength * (canvas.width / 1200)));
+                ctx.filter = `blur(${blurRadius}px)`;
+                ctx.drawImage(canvas, 0, 0);
+                ctx.restore();
+
+            } else if (currentMode === 'blackout') {
+                // Цензура суцільним чорним прямокутником
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x, y, w, h);
+            }
+
+            // Додаємо зріз у історію для Undo (обмеження 15 кроків для економії пам'яті)
+            history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            if (history.length > 15) history.shift();
+        }
+
+        // Скасування (Undo)
+        undoBtn.addEventListener('click', undo);
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undo();
+            }
+        });
+
+        function undo() {
+            if (history.length > 1) {
+                history.pop();
+                const previousState = history[history.length - 1];
+                ctx.putImageData(previousState, 0, 0);
+            }
+        }
+
+        // Скинути до оригіналу
+        resetBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+            if (confirm('Скинути всі зміни та повернути початкове зображення?')) {
+                ctx.drawImage(originalImage, 0, 0);
+                history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+            }
+        });
+
+        // Збереження та завантаження чистого файлу
+        downloadBtn.addEventListener('click', () => {
+            if (!canvas.width) return;
+
+            const isPng = originalFileName.toLowerCase().endsWith('.png');
+            const mimeType = isPng ? 'image/png' : 'image/jpeg';
+            const extension = isPng ? '.png' : '.jpg';
+            const cleanName = 'opsec_clean_' + originalFileName.replace(/\.[^/.]+$/, "") + extension;
+
+            canvas.toBlob((blob) => {
+                const link = document.createElement('a');
+                link.download = cleanName;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }, mimeType, 0.95);
+        });
+    </script>
 </body>
 </html>
