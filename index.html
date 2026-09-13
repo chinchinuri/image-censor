@@ -68,6 +68,19 @@
             flex-wrap: wrap;
         }
 
+        .btn-group-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .group-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
         .btn-group {
             display: flex;
             background: #0b0f19;
@@ -80,10 +93,10 @@
             background: transparent;
             color: var(--text-main);
             border: none;
-            padding: 0.5rem 0.85rem;
+            padding: 0.45rem 0.75rem;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 500;
             display: inline-flex;
             align-items: center;
@@ -95,7 +108,7 @@
             background: var(--accent);
         }
         .file-btn:hover {
-            background: var(--primary-hover);
+            background: var(--accent-hover);
         }
 
         button:hover {
@@ -135,7 +148,7 @@
         input[type="range"] {
             accent-color: var(--accent);
             cursor: pointer;
-            width: 80px;
+            width: 75px;
         }
 
         main {
@@ -160,7 +173,7 @@
         #imageCanvas {
             display: block;
             max-width: 100%;
-            max-height: calc(100vh - 150px);
+            max-height: calc(100vh - 160px);
             object-fit: contain;
             cursor: crosshair;
         }
@@ -174,7 +187,6 @@
             height: 100%;
         }
 
-        /* Початковий екран завантаження */
         .drop-area {
             border: 2px dashed var(--border);
             border-radius: 12px;
@@ -204,7 +216,7 @@
             margin-bottom: 1.25rem;
         }
 
-        #fileInput {
+        #fileInput, #changeFileInput {
             display: none;
         }
 
@@ -233,11 +245,21 @@
         </div>
 
         <div class="toolbar" id="toolbar" style="display: none;">
-            <!-- Режими обробки -->
-            <div class="btn-group">
-                <button class="tool-btn active" data-mode="pixelate" title="Пікселізувати прямокутник">🔲 Пікселі</button>
-                <button class="tool-btn" data-mode="blur" title="Розмити виділену область">🌫️ Розмиття</button>
-                <button class="tool-btn" data-mode="blackout" title="Суцільний чорний колір">⬛ Цензура</button>
+            <!-- Вибір форми -->
+            <div class="btn-group-wrapper">
+                <div class="btn-group">
+                    <button class="shape-btn active" data-shape="rect" title="Прямокутне виділення">▭ Прямокутник</button>
+                    <button class="shape-btn" data-shape="ellipse" title="Овальне/Еліптичне виділення">⬭ Еліпс</button>
+                </div>
+            </div>
+
+            <!-- Вибір ефекту -->
+            <div class="btn-group-wrapper">
+                <div class="btn-group">
+                    <button class="tool-btn active" data-mode="pixelate" title="Пікселізувати">🔲 Пікселі</button>
+                    <button class="tool-btn" data-mode="blur" title="Розмити">🌫️ Розмиття</button>
+                    <button class="tool-btn" data-mode="blackout" title="Суцільна заливка">⬛ Цензура</button>
+                </div>
             </div>
 
             <!-- Слайдер інтенсивності -->
@@ -247,10 +269,10 @@
             </div>
 
             <!-- Керування -->
-            <button class="btn-action" id="undoBtn" title="Скасувати останню дію (Ctrl+Z)">↩️ Скасувати</button>
-            <button class="btn-action" id="resetBtn" title="Скинути всі зміни">🔄 Початкове</button>
+            <button class="btn-action" id="undoBtn" title="Скасувати (Ctrl+Z)">↩️ Скасувати</button>
+            <button class="btn-action" id="resetBtn" title="Повернути оригінал">🔄 Скинути</button>
 
-            <!-- Завантаження нового / збереження -->
+            <!-- Нове фото / Збереження -->
             <label class="file-btn" title="Відкрити інше фото">
                 📂 Нове
                 <input type="file" id="changeFileInput" accept="image/jpeg, image/png, image/webp">
@@ -260,28 +282,27 @@
     </header>
 
     <main>
-        <!-- Зона завантаження (Dropzone) -->
+        <!-- Зона завантаження -->
         <div class="drop-area" id="dropArea">
             <div style="font-size: 3rem; margin-bottom: 0.5rem;">📷</div>
             <h2>Виберіть або перетягніть фото</h2>
-            <p>Метадані (EXIF/GPS) буде очищено автоматично.<br>Ви зможете замаскувати обличчя, шеврони чи екрани перед збереженням.</p>
+            <p>Метадані (EXIF/GPS) буде очищено автоматично.<br>Ви зможете замаскувати прямокутні або еліптичні області перед збереженням.</p>
             <label class="file-btn" style="display: inline-block;">
                 Обрати файл
                 <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp">
             </label>
         </div>
 
-        <!-- Робочий Canvas -->
+        <!-- Робоче полотно -->
         <div class="canvas-wrapper" id="canvasWrapper">
             <canvas id="imageCanvas"></canvas>
             <canvas id="overlayCanvas"></canvas>
         </div>
     </main>
 
-    <div class="hint" id="statusHint">Виділіть мишкою прямокутну область на зображенні</div>
+    <div class="hint" id="statusHint">Затисніть ліву кнопку миші та виділіть область для маскування</div>
 
     <script>
-        // DOM елементи
         const dropArea = document.getElementById('dropArea');
         const fileInput = document.getElementById('fileInput');
         const changeFileInput = document.getElementById('changeFileInput');
@@ -296,19 +317,21 @@
         const resetBtn = document.getElementById('resetBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const toolBtns = document.querySelectorAll('.tool-btn');
+        const shapeBtns = document.querySelectorAll('.shape-btn');
 
         const ctx = canvas.getContext('2d');
         const oCtx = overlay.getContext('2d');
 
-        // Стан додатку
+        // Стан
         let currentMode = 'pixelate';
+        let currentShape = 'rect'; // 'rect' або 'ellipse'
         let originalImage = null;
         let originalFileName = 'image.jpg';
-        let history = []; // Історія для Undo
+        let history = [];
         let isDrawing = false;
         let startX = 0, startY = 0;
 
-        // Обробка Drag & Drop
+        // Завантаження файлів
         dropArea.addEventListener('click', () => fileInput.click());
         dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
         dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
@@ -321,7 +344,6 @@
         fileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
         changeFileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
 
-        // Завантаження зображення
         function loadImage(file) {
             if (!file.type.startsWith('image/')) return;
             originalFileName = file.name;
@@ -330,19 +352,15 @@
 
             img.onload = () => {
                 originalImage = img;
-                // Налаштування розмірів полотна до рідної роздільної здатності фото
                 canvas.width = img.naturalWidth;
                 canvas.height = img.naturalHeight;
                 overlay.width = img.naturalWidth;
                 overlay.height = img.naturalHeight;
 
-                // Перемальовуємо (при цьому автоматично втрачається весь EXIF)
+                // Перемальовуємо у Canvas (EXIF видаляється автоматично)
                 ctx.drawImage(img, 0, 0);
-
-                // Ініціалізація історії
                 history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
 
-                // Перемикання інтерфейсу
                 dropArea.style.display = 'none';
                 canvasWrapper.style.display = 'block';
                 toolbar.style.display = 'flex';
@@ -353,7 +371,16 @@
             img.src = objectUrl;
         }
 
-        // Перемикання інструментів
+        // Перемикання форми виділення
+        shapeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                shapeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentShape = btn.dataset.shape;
+            });
+        });
+
+        // Перемикання ефекту
         toolBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 toolBtns.forEach(b => b.classList.remove('active'));
@@ -363,7 +390,7 @@
             });
         });
 
-        // Конвертація координат миші/екрану в координати канвасу (з урахуванням масштабування)
+        // Отримання координат миші відносно канвасу
         function getCanvasCoords(e) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -374,7 +401,21 @@
             };
         }
 
-        // Малювання виділення (Mouse Events)
+        // Побудова контуру (прямокутник або еліпс)
+        function createPath(targetCtx, x, y, w, h, shape) {
+            targetCtx.beginPath();
+            if (shape === 'rect') {
+                targetCtx.rect(x, y, w, h);
+            } else if (shape === 'ellipse') {
+                const cx = x + w / 2;
+                const cy = y + h / 2;
+                const rx = Math.max(0, w / 2);
+                const ry = Math.max(0, h / 2);
+                targetCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            }
+        }
+
+        // Малювання контуру на оверлеї
         canvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const coords = getCanvasCoords(e);
@@ -386,12 +427,18 @@
             if (!isDrawing) return;
             const coords = getCanvasCoords(e);
             
-            // Очищення overlay канвасу та малювання рамки виділення
             oCtx.clearRect(0, 0, overlay.width, overlay.height);
             oCtx.strokeStyle = '#2563eb';
             oCtx.lineWidth = Math.max(2, canvas.width / 500);
             oCtx.setLineDash([6, 6]);
-            oCtx.strokeRect(startX, startY, coords.x - startX, coords.y - startY);
+
+            const x = Math.min(startX, coords.x);
+            const y = Math.min(startY, coords.y);
+            const w = Math.abs(coords.x - startX);
+            const h = Math.abs(coords.y - startY);
+
+            createPath(oCtx, x, y, w, h, currentShape);
+            oCtx.stroke();
         });
 
         window.addEventListener('mouseup', (e) => {
@@ -405,18 +452,21 @@
             const w = Math.abs(coords.x - startX);
             const h = Math.abs(coords.y - startY);
 
-            // Ігноруємо випадкові дрібні кліки (менше 4px)
             if (w > 4 && h > 4) {
-                applyEffect(x, y, w, h);
+                applyEffect(x, y, w, h, currentShape);
             }
         });
 
-        // Застосування обраного ефекту на область (x, y, w, h)
-        function applyEffect(x, y, w, h) {
+        // Застосування ефекту
+        function applyEffect(x, y, w, h, shape) {
             const strength = parseInt(strengthSlider.value, 10);
 
+            ctx.save();
+            // Обмежуємо дію ефекту обраною фігурою через clip
+            createPath(ctx, x, y, w, h, shape);
+            ctx.clip();
+
             if (currentMode === 'pixelate') {
-                // Пікселізація: зменшуємо фрагмент і малюємо назад без згладжування
                 const sampleSize = Math.max(2, Math.floor(strength * (canvas.width / 1000)));
                 const offCanvas = document.createElement('canvas');
                 const offW = Math.max(1, Math.floor(w / sampleSize));
@@ -433,28 +483,23 @@
                 ctx.imageSmoothingEnabled = true;
 
             } else if (currentMode === 'blur') {
-                // Розмиття через clip та фільтр
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(x, y, w, h);
-                ctx.clip();
                 const blurRadius = Math.max(2, Math.floor(strength * (canvas.width / 1200)));
                 ctx.filter = `blur(${blurRadius}px)`;
                 ctx.drawImage(canvas, 0, 0);
-                ctx.restore();
 
             } else if (currentMode === 'blackout') {
-                // Цензура суцільним чорним прямокутником
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(x, y, w, h);
+                ctx.fill();
             }
 
-            // Додаємо зріз у історію для Undo (обмеження 15 кроків для економії пам'яті)
+            ctx.restore();
+
+            // Збереження кроку для Undo
             history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
             if (history.length > 15) history.shift();
         }
 
-        // Скасування (Undo)
+        // Скасування дій
         undoBtn.addEventListener('click', undo);
         document.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -471,16 +516,16 @@
             }
         }
 
-        // Скинути до оригіналу
+        // Скидання
         resetBtn.addEventListener('click', () => {
             if (!originalImage) return;
-            if (confirm('Скинути всі зміни та повернути початкове зображення?')) {
+            if (confirm('Скинути всі зміни та повернути початкове фото?')) {
                 ctx.drawImage(originalImage, 0, 0);
                 history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
             }
         });
 
-        // Збереження та завантаження чистого файлу
+        // Завантаження результату
         downloadBtn.addEventListener('click', () => {
             if (!canvas.width) return;
 
