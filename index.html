@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpSec Редактор & Web Оптимізатор</title>
+    <title>OpSec Media Studio — Держспецзв'язок</title>
+    <!-- JSZip для пакетного експорту в ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --panel-bg: #1e293b;
+            --bg: #0b0f19;
+            --panel: #1e293b;
             --panel-sub: #111827;
             --accent: #2563eb;
             --accent-hover: #1d4ed8;
-            --text-main: #f8fafc;
+            --text: #f8fafc;
             --text-muted: #94a3b8;
             --border: #334155;
             --danger: #ef4444;
@@ -19,316 +21,128 @@
             --warning: #f59e0b;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+        /* Шапка та Вкладки */
+        header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 0.5rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+        .logo-box { display: flex; align-items: center; gap: 0.75rem; }
+        .logo { font-weight: 700; font-size: 1.05rem; }
+        .badge-safe { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 9999px; font-weight: 600; }
 
-        header {
-            background-color: var(--panel-bg);
-            border-bottom: 1px solid var(--border);
-            padding: 0.6rem 1.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
+        .tabs { display: flex; background: #0b0f19; border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+        .tab-btn { background: transparent; color: var(--text-muted); border: none; padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.2s; }
+        .tab-btn.active { background: var(--accent); color: white; }
 
-        .logo {
-            font-weight: 700;
-            font-size: 1.05rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        /* Панель інструментів редактора */
+        .toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+        .btn-group { display: flex; background: #0b0f19; border-radius: 6px; padding: 2px; border: 1px solid var(--border); }
+        button, .file-btn, select, input[type="number"], input[type="text"] {
+            background: transparent; color: var(--text); border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.3rem; transition: all 0.2s;
         }
+        select, input[type="number"], input[type="text"] { background: #0b0f19; border: 1px solid var(--border); outline: none; border-radius: 6px; }
+        select option { background: #1e293b; color: #fff; }
+        button:hover { background: rgba(255, 255, 255, 0.08); }
+        button.active { background: var(--accent); color: white; }
+        .btn-action { background: #334155; }
+        .btn-action:hover { background: #475569; }
+        .btn-download { background: var(--success); color: white; font-weight: 600; }
+        .btn-download:hover { background: #059669; }
+        .file-btn { background: var(--accent); cursor: pointer; }
+        .file-btn:hover { background: var(--accent-hover); }
 
-        .badge-safe {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-            border: 1px solid var(--success);
-            font-size: 0.7rem;
-            padding: 0.15rem 0.45rem;
-            border-radius: 9999px;
-            font-weight: 600;
-        }
+        .slider-control { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted); }
+        input[type="range"] { accent-color: var(--accent); cursor: pointer; width: 65px; }
 
-        .toolbar {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
+        /* Робоча область */
+        main { flex: 1; display: flex; justify-content: center; align-items: center; padding: 1rem; position: relative; overflow: auto; }
+        .canvas-wrapper { position: relative; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6); border-radius: 4px; overflow: hidden; display: none; background: #000; }
+        #imageCanvas { display: block; max-width: 100%; max-height: calc(100vh - 200px); object-fit: contain; cursor: crosshair; }
+        #overlayCanvas { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; }
 
-        .btn-group {
-            display: flex;
-            background: #0b0f19;
-            border-radius: 6px;
-            padding: 2px;
-            border: 1px solid var(--border);
-        }
+        /* Dropzone */
+        .drop-area { border: 2px dashed var(--border); border-radius: 12px; padding: 3rem 2rem; text-align: center; max-width: 520px; width: 100%; background: var(--panel); cursor: pointer; }
+        .drop-area.dragover { border-color: var(--accent); background: rgba(37, 99, 235, 0.1); }
+        .drop-area h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+        .drop-area p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 1.25rem; }
+        #fileInput, #changeFileInput, #batchFileInput { display: none; }
 
-        button, .file-btn, select, input[type="number"] {
-            background: transparent;
-            color: var(--text-main);
-            border: none;
-            padding: 0.4rem 0.65rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.82rem;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            transition: all 0.2s;
-        }
+        /* Нижня панель експорту */
+        .export-bar { background: var(--panel-sub); border-top: 1px solid var(--border); padding: 0.5rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem; }
+        .export-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .info-pill { background: #1e293b; border: 1px solid var(--border); padding: 0.25rem 0.55rem; border-radius: 6px; font-size: 0.75rem; color: #38bdf8; font-family: monospace; }
 
-        select, input[type="number"] {
-            background: #0b0f19;
-            border: 1px solid var(--border);
-            outline: none;
-            padding: 0.35rem 0.5rem;
-            border-radius: 6px;
-        }
+        /* Пакетний режим (Batch) */
+        #batchView { display: none; width: 100%; max-width: 800px; }
+        .batch-card { background: var(--panel); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); }
+        .batch-files-list { max-height: 250px; overflow-y: auto; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
+        .batch-item { display: flex; justify-content: space-between; align-items: center; background: #0b0f19; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; border: 1px solid var(--border); }
 
-        select option {
-            background: #1e293b;
-            color: #fff;
-        }
+        /* Модалка водяного знака */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: var(--panel); padding: 1.5rem; border-radius: 10px; max-width: 400px; width: 90%; border: 1px solid var(--border); }
+        .modal-content h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+        .modal-row { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
 
-        .file-btn {
-            background: var(--accent);
-        }
-        .file-btn:hover {
-            background: var(--accent-hover);
-        }
-
-        button:hover {
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        button.active {
-            background: var(--accent);
-            color: white;
-        }
-
-        .btn-action {
-            background: #334155;
-        }
-        .btn-action:hover {
-            background: #475569;
-        }
-
-        .btn-download {
-            background: var(--success);
-            color: white;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-        }
-        .btn-download:hover {
-            background: #059669;
-        }
-
-        .slider-control {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            padding: 0 0.3rem;
-        }
-
-        input[type="range"] {
-            accent-color: var(--accent);
-            cursor: pointer;
-            width: 70px;
-        }
-
-        /* Нижня панель оптимізації */
-        .export-bar {
-            background-color: var(--panel-sub);
-            border-top: 1px solid var(--border);
-            padding: 0.6rem 1.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-            font-size: 0.85rem;
-        }
-
-        .export-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .control-item {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: var(--text-muted);
-        }
-
-        .info-pill {
-            background: #1e293b;
-            border: 1px solid var(--border);
-            padding: 0.25rem 0.6rem;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            color: #38bdf8;
-            font-family: monospace;
-        }
-
-        main {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-            position: relative;
-            overflow: auto;
-        }
-
-        .canvas-wrapper {
-            position: relative;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            border-radius: 4px;
-            overflow: hidden;
-            display: none;
-            background: #000;
-        }
-
-        #imageCanvas {
-            display: block;
-            max-width: 100%;
-            max-height: calc(100vh - 200px);
-            object-fit: contain;
-            cursor: crosshair;
-        }
-
-        #overlayCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            width: 100%;
-            height: 100%;
-        }
-
-        .drop-area {
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            padding: 3.5rem 2rem;
-            text-align: center;
-            max-width: 520px;
-            width: 100%;
-            background: var(--panel-bg);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .drop-area.dragover {
-            border-color: var(--accent);
-            background: rgba(37, 99, 235, 0.1);
-        }
-
-        .drop-area h2 {
-            font-size: 1.25rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .drop-area p {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            line-height: 1.4;
-            margin-bottom: 1.25rem;
-        }
-
-        #fileInput, #changeFileInput {
-            display: none;
-        }
-
-        .hint {
-            position: fixed;
-            bottom: 4.5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.9);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border);
-            padding: 0.35rem 0.9rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            pointer-events: none;
-            display: none;
-            z-index: 10;
-        }
+        .hint { position: fixed; bottom: 4.5rem; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 0.35rem 0.9rem; border-radius: 9999px; font-size: 0.75rem; color: var(--text-muted); pointer-events: none; display: none; z-index: 10; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo">
-            🛡️ OpSec Редактор <span class="badge-safe">Client-Side (Офлайн)</span>
+        <div class="logo-box">
+            <div class="logo">🛡️ OpSec Studio</div>
+            <span class="badge-safe">100% Client-Side</span>
+            <div class="tabs">
+                <button class="tab-btn active" id="tabEditorBtn">🎨 Редактор</button>
+                <button class="tab-btn" id="tabBatchBtn">📦 Пакетна обробка</button>
+            </div>
         </div>
 
-        <div class="toolbar" id="toolbar" style="display: none;">
-            <!-- Вибір форми -->
+        <!-- Інструменти Редактора -->
+        <div class="toolbar" id="editorToolbar" style="display: none;">
+            <!-- Форма -->
             <div class="btn-group" id="shapeGroup">
                 <button class="shape-btn" data-shape="rect" title="Прямокутник">▭ Прямокутник</button>
                 <button class="shape-btn active" data-shape="ellipse" title="Овал / Еліпс">⬭ Еліпс</button>
+                <button class="shape-btn" data-shape="brush" title="Вільний пензель">🖌️ Пензель</button>
             </div>
 
-            <!-- Вибір ефекту -->
+            <!-- Ефект -->
             <div class="btn-group">
-                <button class="tool-btn active" data-mode="blur" title="Розмиття з м'якими краями">🌫️ Розмиття</button>
+                <button class="tool-btn active" data-mode="blur" title="Розмиття">🌫️ Розмиття</button>
                 <button class="tool-btn" data-mode="pixelate" title="Пікселі">🔲 Пікселі</button>
-                <button class="tool-btn" data-mode="blackout" title="Суцільна заливка">⬛ Цензура</button>
-                <button class="tool-btn" data-mode="sticker" title="Стікер / Смайлик">🎭 Стікер</button>
+                <button class="tool-btn" data-mode="blackout" title="Чорна цензура">⬛ Заливка</button>
+                <button class="tool-btn" data-mode="colorfill" title="Колірне маскування (під фон)">🎨 Колір</button>
+                <button class="tool-btn" data-mode="sticker" title="Стікер">🎭 Стікер</button>
+                <button class="tool-btn" data-mode="crop" title="Кадрування">✂️ Crop</button>
             </div>
 
-            <!-- Вибір стікера -->
-            <div id="stickerControl" style="display: none;">
-                <select id="stickerSelect" title="Оберіть маску">
-                    <option value="🐱">🐱 Котик</option>
-                    <option value="🐰">🐰 Зайчик</option>
-                    <option value="🐶">🐶 Песик</option>
-                    <option value="🦊">🦊 Лисичка</option>
-                    <option value="🐻">🐻 Ведмедик</option>
-                    <option value="🦉">🦉 Сова</option>
-                    <option value="🥷">🥷 Ніндзя</option>
-                    <option value="😎">😎 Окуляри</option>
-                    <option value="🐸">🐸 Жабка</option>
-                    <option value="🇺🇦">🇺🇦 Прапор</option>
-                    <option value="🛡️">🛡️ Щит</option>
-                    <option value="⛔">⛔ Стоп</option>
-                </select>
-            </div>
+            <!-- Додаткові контролери (динамічні) -->
+            <input type="color" id="fillColorPicker" value="#4a5568" title="Колір для маскування" style="display:none; width:30px; height:26px; padding:0; border:none; border-radius:4px; cursor:pointer;">
+            
+            <select id="stickerSelect" style="display: none;">
+                <option value="🐱">🐱 Котик</option>
+                <option value="🐰">🐰 Зайчик</option>
+                <option value="🐶">🐶 Песик</option>
+                <option value="🦊">🦊 Лисичка</option>
+                <option value="🐻">🐻 Ведмедик</option>
+                <option value="🦉">🦉 Сова</option>
+                <option value="🥷">🥷 Ніндзя</option>
+                <option value="😎">😎 Окуляри</option>
+                <option value="🇺🇦">🇺🇦 Прапор</option>
+                <option value="⛔">⛔ Стоп</option>
+            </select>
 
-            <!-- Слайдер інтенсивності -->
             <div class="slider-control" id="strengthControl">
-                <span>Сила:</span>
-                <input type="range" id="strengthSlider" min="5" max="50" value="20">
+                <span id="strengthLabel">Сила:</span>
+                <input type="range" id="strengthSlider" min="5" max="60" value="20">
             </div>
 
-            <!-- Керування -->
-            <button class="btn-action" id="undoBtn" title="Скасувати (Ctrl+Z)">↩️ Скасувати</button>
-            <button class="btn-action" id="resetBtn" title="Повернути оригінал">🔄 Скинути</button>
-
-            <!-- Нове фото -->
+            <button class="btn-action" id="watermarkModalBtn" title="Додати водяний знак">🏷️ Водяний знак</button>
+            <button class="btn-action" id="undoBtn" title="Скасувати (Ctrl+Z)">↩️</button>
+            <button class="btn-action" id="resetBtn" title="Скинути до оригіналу">🔄</button>
+            
             <label class="file-btn" title="Відкрити інше фото">
                 📂 Нове
                 <input type="file" id="changeFileInput" accept="image/jpeg, image/png, image/webp">
@@ -337,86 +151,145 @@
     </header>
 
     <main>
-        <div class="drop-area" id="dropArea">
-            <div style="font-size: 3rem; margin-bottom: 0.5rem;">📷</div>
-            <h2>Виберіть або перетягніть фото</h2>
-            <p>Метадані (EXIF/GPS) видаляються на 100%.<br>Маскуйте чутливі зони та швидко оптимізуйте роздільну здатність для сайту.</p>
-            <label class="file-btn" style="display: inline-block;">
-                Обрати файл
-                <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp">
-            </label>
+        <!-- Вигляд 1: Поодинокий редактор -->
+        <div id="editorView">
+            <div class="drop-area" id="dropArea">
+                <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📷</div>
+                <h2>Очищення EXIF & Маскування</h2>
+                <p>Перетягніть фото або натисніть <b>Ctrl + V</b> для вставки скріншота з буфера обміну.</p>
+                <label class="file-btn" style="display: inline-block;">
+                    Обрати файл
+                    <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp">
+                </label>
+            </div>
+
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="imageCanvas"></canvas>
+                <canvas id="overlayCanvas"></canvas>
+            </div>
         </div>
 
-        <div class="canvas-wrapper" id="canvasWrapper">
-            <canvas id="imageCanvas"></canvas>
-            <canvas id="overlayCanvas"></canvas>
+        <!-- Вигляд 2: Пакетна обробка -->
+        <div id="batchView">
+            <div class="batch-card">
+                <h2>📦 Пакетне очищення та стиснення</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+                    Масове видалення EXIF/GPS, зміна розміру та пакування у ZIP-архів.
+                </p>
+
+                <div class="drop-area" id="batchDropArea" style="margin: 1.25rem auto; padding: 2rem;">
+                    <p style="margin-bottom: 0.75rem;">Оберіть або перетягніть кілька фото (10–50 шт.)</p>
+                    <label class="file-btn" style="display: inline-block;">
+                        Обрати групу фото
+                        <input type="file" id="batchFileInput" accept="image/jpeg, image/png, image/webp" multiple>
+                    </label>
+                </div>
+
+                <div class="batch-files-list" id="batchFileList"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        Усього вибрано: <span id="batchCount" style="color: #fff; font-weight: 600;">0</span> файлів
+                    </div>
+                    <button class="btn-download" id="batchDownloadBtn" disabled>📦 Обробити й скачати ZIP</button>
+                </div>
+            </div>
         </div>
     </main>
 
-    <!-- Нижня панель Web-оптимізації -->
+    <!-- Нижня панель експорту редактора -->
     <div class="export-bar" id="exportBar" style="display: none;">
         <div class="export-controls">
-            <!-- Пресет розміру -->
-            <div class="control-item">
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
                 <span>Розмір:</span>
                 <select id="resizePreset">
                     <option value="original">Оригінал</option>
-                    <option value="1920">1920px (Full HD / Банер)</option>
-                    <option value="1200" selected>1200px (Стаття сайту)</option>
+                    <option value="1920">1920px (Full HD)</option>
+                    <option value="1200" selected>1200px (Сайт)</option>
                     <option value="800">800px (Соцмережі)</option>
-                    <option value="custom">Власний (Ширина)...</option>
+                    <option value="custom">Власний...</option>
                 </select>
-                <input type="number" id="customWidthInput" style="display:none; width: 75px;" placeholder="px" min="100" max="8000">
+                <input type="number" id="customWidthInput" style="display:none; width: 70px;" placeholder="px">
             </div>
 
-            <!-- Формат експорту -->
-            <div class="control-item">
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
                 <span>Формат:</span>
                 <select id="exportFormat">
-                    <option value="image/webp" selected>WebP (Найкращий для Web)</option>
-                    <option value="image/jpeg">JPEG (Стандарт)</option>
-                    <option value="image/png">PNG (Без втрат)</option>
+                    <option value="image/webp" selected>WebP</option>
+                    <option value="image/jpeg">JPEG</option>
+                    <option value="image/png">PNG</option>
                 </select>
             </div>
 
-            <!-- Якість / Стиснення -->
-            <div class="control-item" id="qualityControl">
+            <div style="display: flex; align-items: center; gap: 0.35rem;" id="qualityControl">
                 <span>Якість:</span>
                 <input type="range" id="qualitySlider" min="50" max="100" value="82">
-                <span id="qualityVal" style="font-family: monospace; min-width: 32px;">82%</span>
+                <span id="qualityVal" style="font-family: monospace;">82%</span>
             </div>
 
-            <!-- Інформація про розмір -->
             <div class="info-pill" id="dimensionsInfo">...</div>
         </div>
 
-        <button class="btn-download" id="downloadBtn">💾 Зберегти для сайту</button>
+        <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-action" id="copyClipboardBtn" title="Копіювати в буфер для вставки в Telegram/CMS">📋 Скопіювати</button>
+            <button class="btn-download" id="downloadBtn">💾 Зберегти</button>
+        </div>
     </div>
 
-    <div class="hint" id="statusHint">Затисніть ліву кнопку миші та виділіть область для маскування</div>
+    <!-- Модалка Водяного знака -->
+    <div class="modal" id="watermarkModal">
+        <div class="modal-content">
+            <h3>🏷️ Додати водяний знак</h3>
+            <div class="modal-row">
+                <label>Текст підпису:</label>
+                <input type="text" id="wmTextInput" value="© Держспецзв'язку" style="padding: 0.4rem;">
+            </div>
+            <div class="modal-row">
+                <label>Розташування:</label>
+                <select id="wmPosition">
+                    <option value="br">Нижній правий кут</option>
+                    <option value="bl">Нижній лівий кут</option>
+                    <option value="tr">Верхній правий кут</option>
+                    <option value="center">По центру</option>
+                </select>
+            </div>
+            <div class="modal-row">
+                <label>Прозорість:</label>
+                <input type="range" id="wmOpacity" min="10" max="100" value="60">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button class="btn-action" id="wmCancelBtn">Скасувати</button>
+                <button class="btn-download" id="wmApplyBtn">Накласти</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="hint" id="statusHint">Затисніть ліву кнопку миші для маскування</div>
 
     <script>
+        // DOM елементи
+        const tabEditorBtn = document.getElementById('tabEditorBtn');
+        const tabBatchBtn = document.getElementById('tabBatchBtn');
+        const editorView = document.getElementById('editorView');
+        const batchView = document.getElementById('batchView');
+        const editorToolbar = document.getElementById('editorToolbar');
+        const exportBar = document.getElementById('exportBar');
+
         const dropArea = document.getElementById('dropArea');
         const fileInput = document.getElementById('fileInput');
         const changeFileInput = document.getElementById('changeFileInput');
         const canvasWrapper = document.getElementById('canvasWrapper');
         const canvas = document.getElementById('imageCanvas');
         const overlay = document.getElementById('overlayCanvas');
-        const toolbar = document.getElementById('toolbar');
-        const exportBar = document.getElementById('exportBar');
         const statusHint = document.getElementById('statusHint');
+
         const strengthSlider = document.getElementById('strengthSlider');
+        const strengthLabel = document.getElementById('strengthLabel');
         const strengthControl = document.getElementById('strengthControl');
-        const stickerControl = document.getElementById('stickerControl');
+        const fillColorPicker = document.getElementById('fillColorPicker');
         const stickerSelect = document.getElementById('stickerSelect');
         const shapeGroup = document.getElementById('shapeGroup');
-        const undoBtn = document.getElementById('undoBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const toolBtns = document.querySelectorAll('.tool-btn');
-        const shapeBtns = document.querySelectorAll('.shape-btn');
 
-        // Елементи оптимізації
         const resizePreset = document.getElementById('resizePreset');
         const customWidthInput = document.getElementById('customWidthInput');
         const exportFormat = document.getElementById('exportFormat');
@@ -424,10 +297,15 @@
         const qualityVal = document.getElementById('qualityVal');
         const qualityControl = document.getElementById('qualityControl');
         const dimensionsInfo = document.getElementById('dimensionsInfo');
+        const undoBtn = document.getElementById('undoBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyClipboardBtn = document.getElementById('copyClipboardBtn');
 
         const ctx = canvas.getContext('2d');
         const oCtx = overlay.getContext('2d');
 
+        // Стан редактора
         let currentMode = 'blur';
         let currentShape = 'ellipse';
         let originalImage = null;
@@ -435,8 +313,32 @@
         let history = [];
         let isDrawing = false;
         let startX = 0, startY = 0;
+        let brushPoints = [];
 
-        // Завантаження файлів
+        // Перемикання вкладок
+        tabEditorBtn.addEventListener('click', () => {
+            tabEditorBtn.classList.add('active');
+            tabBatchBtn.classList.remove('active');
+            editorView.style.display = 'block';
+            batchView.style.display = 'none';
+            if (originalImage) {
+                editorToolbar.style.display = 'flex';
+                exportBar.style.display = 'flex';
+            }
+        });
+
+        tabBatchBtn.addEventListener('click', () => {
+            tabBatchBtn.classList.add('active');
+            tabEditorBtn.classList.remove('active');
+            editorView.style.display = 'none';
+            batchView.style.display = 'block';
+            editorToolbar.style.display = 'none';
+            exportBar.style.display = 'none';
+        });
+
+        // ----------------------------------------------------
+        // ЗАВАНТАЖЕННЯ З ФАЙЛУ ТА З БУФЕРА ОБМІНУ (Ctrl + V)
+        // ----------------------------------------------------
         dropArea.addEventListener('click', () => fileInput.click());
         dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
         dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
@@ -449,9 +351,22 @@
         fileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
         changeFileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
 
+        // Вставка скріншоту через Ctrl+V
+        window.addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (const item of items) {
+                if (item.type.indexOf('image') === 0) {
+                    const blob = item.getAsFile();
+                    originalFileName = `screenshot_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.png`;
+                    loadImage(blob);
+                    break;
+                }
+            }
+        });
+
         function loadImage(file) {
             if (!file.type.startsWith('image/')) return;
-            originalFileName = file.name;
+            if (file.name) originalFileName = file.name;
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
 
@@ -467,7 +382,7 @@
 
                 dropArea.style.display = 'none';
                 canvasWrapper.style.display = 'block';
-                toolbar.style.display = 'flex';
+                editorToolbar.style.display = 'flex';
                 exportBar.style.display = 'flex';
                 statusHint.style.display = 'block';
 
@@ -477,72 +392,28 @@
             img.src = objectUrl;
         }
 
-        // Оновлення індикатора розмірів
-        function updateDimensionsInfo() {
-            if (!canvas.width) return;
-            const target = getTargetDimensions();
-            dimensionsInfo.textContent = `${canvas.width}x${canvas.height} ➔ ${target.width}x${target.height} px`;
-        }
-
-        function getTargetDimensions() {
-            const preset = resizePreset.value;
-            let targetW = canvas.width;
-            let targetH = canvas.height;
-
-            if (preset === 'custom') {
-                const customW = parseInt(customWidthInput.value, 10);
-                if (customW && customW > 0) {
-                    targetW = customW;
-                    targetH = Math.round(canvas.height * (targetW / canvas.width));
-                }
-            } else if (preset !== 'original') {
-                const maxDim = parseInt(preset, 10);
-                if (canvas.width > maxDim) {
-                    targetW = maxDim;
-                    targetH = Math.round(canvas.height * (targetW / canvas.width));
-                }
-            }
-            return { width: targetW, height: targetH };
-        }
-
-        // Обробники змін у налаштуваннях оптимізації
-        resizePreset.addEventListener('change', () => {
-            customWidthInput.style.display = (resizePreset.value === 'custom') ? 'inline-block' : 'none';
-            if (resizePreset.value === 'custom' && !customWidthInput.value) {
-                customWidthInput.value = Math.min(1200, canvas.width);
-            }
-            updateDimensionsInfo();
-        });
-
-        customWidthInput.addEventListener('input', updateDimensionsInfo);
-
-        exportFormat.addEventListener('change', () => {
-            qualityControl.style.display = (exportFormat.value === 'image/png') ? 'none' : 'flex';
-        });
-
-        qualitySlider.addEventListener('input', () => {
-            qualityVal.textContent = qualitySlider.value + '%';
-        });
-
-        // Перемикання фігури
-        shapeBtns.forEach(btn => {
+        // ----------------------------------------------------
+        // ПАНЕЛЬ ІНСТРУМЕНТІВ ТА ПЕРЕМИКАЧІ
+        // ----------------------------------------------------
+        document.querySelectorAll('.shape-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                shapeBtns.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentShape = btn.dataset.shape;
+                strengthLabel.textContent = (currentShape === 'brush') ? 'Пензель:' : 'Сила:';
             });
         });
 
-        // Перемикання інструментів
-        toolBtns.forEach(btn => {
+        document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                toolBtns.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentMode = btn.dataset.mode;
 
-                stickerControl.style.display = (currentMode === 'sticker') ? 'block' : 'none';
-                strengthControl.style.display = (currentMode === 'blackout' || currentMode === 'sticker') ? 'none' : 'flex';
-                shapeGroup.style.display = (currentMode === 'sticker') ? 'none' : 'flex';
+                stickerSelect.style.display = (currentMode === 'sticker') ? 'inline-block' : 'none';
+                fillColorPicker.style.display = (currentMode === 'colorfill') ? 'inline-block' : 'none';
+                shapeGroup.style.display = (currentMode === 'sticker' || currentMode === 'crop') ? 'none' : 'flex';
+                strengthControl.style.display = (currentMode === 'crop' || currentMode === 'blackout') ? 'none' : 'flex';
             });
         });
 
@@ -556,30 +427,20 @@
             };
         }
 
-        function createPath(targetCtx, x, y, w, h, shape) {
-            targetCtx.beginPath();
-            if (shape === 'rect') {
-                targetCtx.rect(x, y, w, h);
-            } else if (shape === 'ellipse') {
-                const cx = x + w / 2;
-                const cy = y + h / 2;
-                const rx = Math.max(0, w / 2);
-                const ry = Math.max(0, h / 2);
-                targetCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            }
-        }
-
+        // ----------------------------------------------------
+        // МАЛЮВАННЯ НА ПОЛОТНІ (Mouse & Brush)
+        // ----------------------------------------------------
         canvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const coords = getCanvasCoords(e);
             startX = coords.x;
             startY = coords.y;
+            brushPoints = [{x: startX, y: startY}];
         });
 
         window.addEventListener('mousemove', (e) => {
             if (!isDrawing) return;
             const coords = getCanvasCoords(e);
-            
             oCtx.clearRect(0, 0, overlay.width, overlay.height);
 
             const x = Math.min(startX, coords.x);
@@ -587,17 +448,34 @@
             const w = Math.abs(coords.x - startX);
             const h = Math.abs(coords.y - startY);
 
+            if (currentShape === 'brush' && currentMode !== 'sticker' && currentMode !== 'crop') {
+                brushPoints.push({x: coords.x, y: coords.y});
+                oCtx.strokeStyle = 'rgba(37, 99, 235, 0.7)';
+                oCtx.lineWidth = Math.max(5, parseInt(strengthSlider.value, 10) * (canvas.width / 500));
+                oCtx.lineCap = 'round';
+                oCtx.lineJoin = 'round';
+                oCtx.beginPath();
+                oCtx.moveTo(brushPoints[0].x, brushPoints[0].y);
+                for (let i = 1; i < brushPoints.length; i++) oCtx.lineTo(brushPoints[i].x, brushPoints[i].y);
+                oCtx.stroke();
+                return;
+            }
+
             if (currentMode === 'sticker') {
                 const fontSize = Math.floor(Math.min(w, h));
                 if (fontSize > 5) {
-                    oCtx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+                    oCtx.font = `${fontSize}px sans-serif`;
                     oCtx.textAlign = 'center';
                     oCtx.textBaseline = 'middle';
                     oCtx.fillText(stickerSelect.value, x + w / 2, y + h / 2);
                 }
                 oCtx.strokeStyle = 'rgba(37, 99, 235, 0.4)';
-                oCtx.lineWidth = 1;
                 oCtx.setLineDash([4, 4]);
+                oCtx.strokeRect(x, y, w, h);
+            } else if (currentMode === 'crop') {
+                oCtx.strokeStyle = '#ef4444';
+                oCtx.lineWidth = 2;
+                oCtx.setLineDash([6, 6]);
                 oCtx.strokeRect(x, y, w, h);
             } else {
                 oCtx.strokeStyle = '#2563eb';
@@ -619,142 +497,266 @@
             const w = Math.abs(coords.x - startX);
             const h = Math.abs(coords.y - startY);
 
-            if (w > 4 && h > 4) {
+            if (currentMode === 'crop') {
+                if (w > 20 && h > 20) applyCrop(x, y, w, h);
+            } else if (currentShape === 'brush') {
+                if (brushPoints.length > 1) applyBrushEffect();
+            } else if (w > 4 && h > 4) {
                 applyEffect(x, y, w, h);
             }
         });
 
+        function createPath(targetCtx, x, y, w, h, shape) {
+            targetCtx.beginPath();
+            if (shape === 'rect') targetCtx.rect(x, y, w, h);
+            else if (shape === 'ellipse') targetCtx.ellipse(x + w/2, y + h/2, Math.max(0, w/2), Math.max(0, h/2), 0, 0, Math.PI * 2);
+        }
+
+        // Застосування прямокутних/овальних ефектів
         function applyEffect(x, y, w, h) {
             const strength = parseInt(strengthSlider.value, 10);
 
             if (currentMode === 'sticker') {
-                const fontSize = Math.floor(Math.min(w, h));
                 ctx.save();
-                ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+                ctx.font = `${Math.floor(Math.min(w, h))}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(stickerSelect.value, x + w / 2, y + h / 2);
                 ctx.restore();
-
             } else if (currentMode === 'blur') {
                 const blurRadius = Math.max(4, Math.floor(strength * (canvas.width / 1000)));
                 const pad = blurRadius * 2;
-                
-                const cropX = Math.max(0, x - pad);
-                const cropY = Math.max(0, y - pad);
+                const cropX = Math.max(0, x - pad), cropY = Math.max(0, y - pad);
                 const cropW = Math.min(canvas.width - cropX, w + pad * 2);
                 const cropH = Math.min(canvas.height - cropY, h + pad * 2);
 
                 const blurCanvas = document.createElement('canvas');
-                blurCanvas.width = cropW;
-                blurCanvas.height = cropH;
+                blurCanvas.width = cropW; blurCanvas.height = cropH;
                 const bCtx = blurCanvas.getContext('2d');
                 bCtx.filter = `blur(${blurRadius}px)`;
                 bCtx.drawImage(canvas, -cropX, -cropY);
 
                 const maskCanvas = document.createElement('canvas');
-                maskCanvas.width = cropW;
-                maskCanvas.height = cropH;
+                maskCanvas.width = cropW; maskCanvas.height = cropH;
                 const mCtx = maskCanvas.getContext('2d');
-
-                const featherRadius = Math.max(4, Math.floor(blurRadius * 0.5));
-                mCtx.filter = `blur(${featherRadius}px)`;
-                mCtx.fillStyle = '#ffffff';
-
-                const localX = x - cropX;
-                const localY = y - cropY;
-                createPath(mCtx, localX, localY, w, h, currentShape);
+                mCtx.filter = `blur(${Math.max(4, Math.floor(blurRadius * 0.5))}px)`;
+                mCtx.fillStyle = '#fff';
+                createPath(mCtx, x - cropX, y - cropY, w, h, currentShape);
                 mCtx.fill();
 
                 bCtx.filter = 'none';
                 bCtx.globalCompositeOperation = 'destination-in';
                 bCtx.drawImage(maskCanvas, 0, 0);
-
                 ctx.drawImage(blurCanvas, cropX, cropY);
-
             } else if (currentMode === 'pixelate') {
                 ctx.save();
                 createPath(ctx, x, y, w, h, currentShape);
                 ctx.clip();
-
-                const sampleSize = Math.max(2, Math.floor(strength * (canvas.width / 1000)));
-                const offCanvas = document.createElement('canvas');
-                const offW = Math.max(1, Math.floor(w / sampleSize));
-                const offH = Math.max(1, Math.floor(h / sampleSize));
-                
-                offCanvas.width = offW;
-                offCanvas.height = offH;
-                const offCtx = offCanvas.getContext('2d');
-                offCtx.drawImage(canvas, x, y, w, h, 0, 0, offW, offH);
-
+                const sample = Math.max(2, Math.floor(strength * (canvas.width / 1000)));
+                const off = document.createElement('canvas');
+                off.width = Math.max(1, Math.floor(w / sample));
+                off.height = Math.max(1, Math.floor(h / sample));
+                off.getContext('2d').drawImage(canvas, x, y, w, h, 0, 0, off.width, off.height);
                 ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(offCanvas, 0, 0, offW, offH, x, y, w, h);
+                ctx.drawImage(off, 0, 0, off.width, off.height, x, y, w, h);
                 ctx.imageSmoothingEnabled = true;
                 ctx.restore();
-
-            } else if (currentMode === 'blackout') {
+            } else if (currentMode === 'blackout' || currentMode === 'colorfill') {
                 ctx.save();
                 createPath(ctx, x, y, w, h, currentShape);
-                ctx.fillStyle = '#000000';
+                ctx.fillStyle = (currentMode === 'colorfill') ? fillColorPicker.value : '#000000';
                 ctx.fill();
                 ctx.restore();
             }
 
+            pushHistory();
+        }
+
+        // Застосування вільного пензля
+        function applyBrushEffect() {
+            const bWidth = Math.max(5, parseInt(strengthSlider.value, 10) * (canvas.width / 500));
+            ctx.save();
+            ctx.lineWidth = bWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (currentMode === 'blur') {
+                ctx.filter = `blur(${Math.max(4, bWidth / 2)}px)`;
+                ctx.beginPath();
+                ctx.moveTo(brushPoints[0].x, brushPoints[0].y);
+                for (let i = 1; i < brushPoints.length; i++) ctx.lineTo(brushPoints[i].x, brushPoints[i].y);
+                ctx.stroke();
+            } else {
+                ctx.strokeStyle = (currentMode === 'colorfill') ? fillColorPicker.value : '#000000';
+                ctx.beginPath();
+                ctx.moveTo(brushPoints[0].x, brushPoints[0].y);
+                for (let i = 1; i < brushPoints.length; i++) ctx.lineTo(brushPoints[i].x, brushPoints[i].y);
+                ctx.stroke();
+            }
+            ctx.restore();
+            pushHistory();
+        }
+
+        // Кадрування (Crop)
+        function applyCrop(x, y, w, h) {
+            const croppedData = ctx.getImageData(x, y, w, h);
+            canvas.width = w; canvas.height = h;
+            overlay.width = w; overlay.height = h;
+            ctx.putImageData(croppedData, 0, 0);
+            updateDimensionsInfo();
+            pushHistory();
+        }
+
+        function pushHistory() {
             history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
             if (history.length > 15) history.shift();
         }
 
-        undoBtn.addEventListener('click', undo);
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-                e.preventDefault();
-                undo();
-            }
-        });
-
-        function undo() {
+        undoBtn.addEventListener('click', () => {
             if (history.length > 1) {
                 history.pop();
-                const previousState = history[history.length - 1];
-                ctx.putImageData(previousState, 0, 0);
-            }
-        }
-
-        resetBtn.addEventListener('click', () => {
-            if (!originalImage) return;
-            if (confirm('Скинути всі зміни та повернути початкове фото?')) {
-                ctx.drawImage(originalImage, 0, 0);
-                history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+                const prevState = history[history.length - 1];
+                canvas.width = prevState.width;
+                canvas.height = prevState.height;
+                overlay.width = prevState.width;
+                overlay.height = prevState.height;
+                ctx.putImageData(prevState, 0, 0);
+                updateDimensionsInfo();
             }
         });
 
-        // ЕКСПОРТ: Зміна розміру + Стиснення + Видалення EXIF
-        downloadBtn.addEventListener('click', () => {
-            if (!canvas.width) return;
+        resetBtn.addEventListener('click', () => {
+            if (originalImage && confirm('Скинути всі зміни?')) {
+                canvas.width = originalImage.naturalWidth;
+                canvas.height = originalImage.naturalHeight;
+                overlay.width = canvas.width;
+                overlay.height = canvas.height;
+                ctx.drawImage(originalImage, 0, 0);
+                history = [ctx.getImageData(0, 0, canvas.width, canvas.height)];
+                updateDimensionsInfo();
+            }
+        });
 
+        // ----------------------------------------------------
+        // ВОДЯНИЙ ЗНАК / БРЕНДУВАННЯ
+        // ----------------------------------------------------
+        const wmModal = document.getElementById('watermarkModal');
+        document.getElementById('watermarkModalBtn').addEventListener('click', () => wmModal.style.display = 'flex');
+        document.getElementById('wmCancelBtn').addEventListener('click', () => wmModal.style.display = 'none');
+
+        document.getElementById('wmApplyBtn').addEventListener('click', () => {
+            const text = document.getElementById('wmTextInput').value;
+            const pos = document.getElementById('wmPosition').value;
+            const opacity = parseInt(document.getElementById('wmOpacity').value, 10) / 100;
+
+            ctx.save();
+            const fontSize = Math.max(16, Math.floor(canvas.width / 35));
+            ctx.font = `600 ${fontSize}px sans-serif`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 4;
+
+            const padding = fontSize;
+            let tx = padding, ty = padding + fontSize;
+
+            if (pos === 'br') {
+                ctx.textAlign = 'right';
+                tx = canvas.width - padding;
+                ty = canvas.height - padding;
+            } else if (pos === 'bl') {
+                ctx.textAlign = 'left';
+                tx = padding;
+                ty = canvas.height - padding;
+            } else if (pos === 'tr') {
+                ctx.textAlign = 'right';
+                tx = canvas.width - padding;
+                ty = padding + fontSize;
+            } else if (pos === 'center') {
+                ctx.textAlign = 'center';
+                tx = canvas.width / 2;
+                ty = canvas.height / 2;
+            }
+
+            ctx.fillText(text, tx, ty);
+            ctx.restore();
+            wmModal.style.display = 'none';
+            pushHistory();
+        });
+
+        // ----------------------------------------------------
+        // РОЗРАХУНОК РОЗМІРІВ ТА ЕКСПОРТ
+        // ----------------------------------------------------
+        function getTargetDimensions() {
+            const preset = resizePreset.value;
+            let targetW = canvas.width, targetH = canvas.height;
+
+            if (preset === 'custom') {
+                const customW = parseInt(customWidthInput.value, 10);
+                if (customW > 0) {
+                    targetW = customW;
+                    targetH = Math.round(canvas.height * (targetW / canvas.width));
+                }
+            } else if (preset !== 'original') {
+                const maxDim = parseInt(preset, 10);
+                if (canvas.width > maxDim) {
+                    targetW = maxDim;
+                    targetH = Math.round(canvas.height * (targetW / canvas.width));
+                }
+            }
+            return { width: targetW, height: targetH };
+        }
+
+        function updateDimensionsInfo() {
+            if (!canvas.width) return;
+            const target = getTargetDimensions();
+            dimensionsInfo.textContent = `${canvas.width}x${canvas.height} ➔ ${target.width}x${target.height} px`;
+        }
+
+        resizePreset.addEventListener('change', () => {
+            customWidthInput.style.display = (resizePreset.value === 'custom') ? 'inline-block' : 'none';
+            if (resizePreset.value === 'custom' && !customWidthInput.value) customWidthInput.value = Math.min(1200, canvas.width);
+            updateDimensionsInfo();
+        });
+        customWidthInput.addEventListener('input', updateDimensionsInfo);
+        qualitySlider.addEventListener('input', () => qualityVal.textContent = qualitySlider.value + '%');
+
+        // Копіювання чистого зображення в буфер (Ctrl+C для Telegram/CMS)
+        copyClipboardBtn.addEventListener('click', () => {
+            const target = getTargetDimensions();
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = target.width; expCanvas.height = target.height;
+            const eCtx = expCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = true; eCtx.imageSmoothingQuality = 'high';
+            eCtx.drawImage(canvas, 0, 0, target.width, target.height);
+
+            expCanvas.toBlob(blob => {
+                const item = new ClipboardItem({ 'image/png': blob });
+                navigator.clipboard.write([item]).then(() => {
+                    const originalText = copyClipboardBtn.textContent;
+                    copyClipboardBtn.textContent = '✅ Скопійовано!';
+                    setTimeout(() => copyClipboardBtn.textContent = originalText, 2000);
+                }).catch(() => alert('Не вдалося скопіювати у буфер обміну.'));
+            }, 'image/png');
+        });
+
+        // Збереження файлу
+        downloadBtn.addEventListener('click', () => {
             const target = getTargetDimensions();
             const format = exportFormat.value;
             const quality = parseInt(qualitySlider.value, 10) / 100;
 
-            // Створюємо масштабоване вихідне полотно
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = target.width;
-            exportCanvas.height = target.height;
-
-            const expCtx = exportCanvas.getContext('2d');
-            // Високоякісне білінійне згладжування при зменшенні
-            expCtx.imageSmoothingEnabled = true;
-            expCtx.imageSmoothingQuality = 'high';
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = target.width; expCanvas.height = target.height;
+            const expCtx = expCanvas.getContext('2d');
+            expCtx.imageSmoothingEnabled = true; expCtx.imageSmoothingQuality = 'high';
             expCtx.drawImage(canvas, 0, 0, target.width, target.height);
 
-            // Визначення розширення файлу
             let ext = '.webp';
             if (format === 'image/jpeg') ext = '.jpg';
             if (format === 'image/png') ext = '.png';
 
             const cleanName = 'dsszzi_clean_' + originalFileName.replace(/\.[^/.]+$/, "") + ext;
-
-            exportCanvas.toBlob((blob) => {
+            expCanvas.toBlob(blob => {
                 const link = document.createElement('a');
                 link.download = cleanName;
                 link.href = URL.createObjectURL(blob);
@@ -762,6 +764,106 @@
                 URL.revokeObjectURL(link.href);
             }, format, quality);
         });
+
+        // ----------------------------------------------------
+        // ПАКЕТНА ОБРОБКА ФОТО (BATCH ZIP)
+        // ----------------------------------------------------
+        const batchDropArea = document.getElementById('batchDropArea');
+        const batchFileInput = document.getElementById('batchFileInput');
+        const batchFileList = document.getElementById('batchFileList');
+        const batchCount = document.getElementById('batchCount');
+        const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+        let batchFiles = [];
+
+        batchDropArea.addEventListener('click', () => batchFileInput.click());
+        batchDropArea.addEventListener('dragover', (e) => { e.preventDefault(); batchDropArea.classList.add('dragover'); });
+        batchDropArea.addEventListener('dragleave', () => batchDropArea.classList.remove('dragover'));
+        batchDropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            batchDropArea.classList.remove('dragover');
+            handleBatchFiles(e.dataTransfer.files);
+        });
+        batchFileInput.addEventListener('change', (e) => handleBatchFiles(e.target.files));
+
+        function handleBatchFiles(files) {
+            for (const file of files) {
+                if (file.type.startsWith('image/')) batchFiles.push(file);
+            }
+            updateBatchUI();
+        }
+
+        function updateBatchUI() {
+            batchCount.textContent = batchFiles.length;
+            batchFileList.innerHTML = '';
+            batchFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'batch-item';
+                item.innerHTML = `
+                    <span>📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)</span>
+                    <button style="color:var(--danger);" onclick="removeBatchFile(${index})">✕</button>
+                `;
+                batchFileList.appendChild(item);
+            });
+            batchDownloadBtn.disabled = batchFiles.length === 0;
+        }
+
+        window.removeBatchFile = function(index) {
+            batchFiles.splice(index, 1);
+            updateBatchUI();
+        };
+
+        batchDownloadBtn.addEventListener('click', async () => {
+            if (!batchFiles.length) return;
+            batchDownloadBtn.textContent = '⏳ Обробка...';
+            batchDownloadBtn.disabled = true;
+
+            const zip = new JSZip();
+
+            for (let i = 0; i < batchFiles.length; i++) {
+                const file = batchFiles[i];
+                const blob = await processSingleBatchImage(file);
+                const cleanName = `clean_${file.name.replace(/\.[^/.]+$/, "")}.webp`;
+                zip.file(cleanName, blob);
+            }
+
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement('a');
+            link.download = `dsszzi_batch_${new Date().toISOString().slice(0,10)}.zip`;
+            link.href = URL.createObjectURL(zipBlob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            batchDownloadBtn.textContent = '📦 Обробити й скачати ZIP';
+            batchDownloadBtn.disabled = false;
+        });
+
+        function processSingleBatchImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const temp = document.createElement('canvas');
+                    let targetW = img.naturalWidth;
+                    let targetH = img.naturalHeight;
+                    
+                    // За замовчуванням обмежуємо макс ширину 1920px для вебу
+                    if (targetW > 1920) {
+                        targetW = 1920;
+                        targetH = Math.round(img.naturalHeight * (1920 / img.naturalWidth));
+                    }
+                    temp.width = targetW; temp.height = targetH;
+                    const tCtx = temp.getContext('2d');
+                    tCtx.imageSmoothingEnabled = true; tCtx.imageSmoothingQuality = 'high';
+                    tCtx.drawImage(img, 0, 0, targetW, targetH);
+
+                    temp.toBlob((blob) => {
+                        URL.revokeObjectURL(url);
+                        resolve(blob);
+                    }, 'image/webp', 0.82);
+                };
+                img.src = url;
+            });
+        }
     </script>
 </body>
 </html>
