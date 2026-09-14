@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpSec Media Studio — Держспецзв'язок</title>
+    <!-- Локальний AI для виявлення облич (100% у браузері через TensorFlow.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
     <!-- JSZip для пакетного експорту в ZIP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
@@ -18,13 +21,13 @@
             --border: #334155;
             --danger: #ef4444;
             --success: #10b981;
-            --warning: #f59e0b;
+            --ai-color: #8b5cf6;
+            --ai-hover: #7c3aed;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-        /* Шапка та Вкладки */
         header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 0.5rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
         .logo-box { display: flex; align-items: center; gap: 0.75rem; }
         .logo { font-weight: 700; font-size: 1.05rem; }
@@ -34,7 +37,6 @@
         .tab-btn { background: transparent; color: var(--text-muted); border: none; padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.2s; }
         .tab-btn.active { background: var(--accent); color: white; }
 
-        /* Панель інструментів редактора */
         .toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
         .btn-group { display: flex; background: #0b0f19; border-radius: 6px; padding: 2px; border: 1px solid var(--border); }
         button, .file-btn, select, input[type="number"], input[type="text"] {
@@ -44,8 +46,13 @@
         select option { background: #1e293b; color: #fff; }
         button:hover { background: rgba(255, 255, 255, 0.08); }
         button.active { background: var(--accent); color: white; }
+        
         .btn-action { background: #334155; }
         .btn-action:hover { background: #475569; }
+        
+        .btn-ai { background: var(--ai-color); color: white; font-weight: 600; }
+        .btn-ai:hover { background: var(--ai-hover); }
+
         .btn-download { background: var(--success); color: white; font-weight: 600; }
         .btn-download:hover { background: #059669; }
         .file-btn { background: var(--accent); cursor: pointer; }
@@ -54,31 +61,26 @@
         .slider-control { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted); }
         input[type="range"] { accent-color: var(--accent); cursor: pointer; width: 65px; }
 
-        /* Робоча область */
         main { flex: 1; display: flex; justify-content: center; align-items: center; padding: 1rem; position: relative; overflow: auto; }
         .canvas-wrapper { position: relative; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6); border-radius: 4px; overflow: hidden; display: none; background: #000; }
         #imageCanvas { display: block; max-width: 100%; max-height: calc(100vh - 200px); object-fit: contain; cursor: crosshair; }
         #overlayCanvas { position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%; }
 
-        /* Dropzone */
         .drop-area { border: 2px dashed var(--border); border-radius: 12px; padding: 3rem 2rem; text-align: center; max-width: 520px; width: 100%; background: var(--panel); cursor: pointer; }
         .drop-area.dragover { border-color: var(--accent); background: rgba(37, 99, 235, 0.1); }
         .drop-area h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
         .drop-area p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 1.25rem; }
         #fileInput, #changeFileInput, #batchFileInput { display: none; }
 
-        /* Нижня панель експорту */
         .export-bar { background: var(--panel-sub); border-top: 1px solid var(--border); padding: 0.5rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8rem; }
         .export-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
         .info-pill { background: #1e293b; border: 1px solid var(--border); padding: 0.25rem 0.55rem; border-radius: 6px; font-size: 0.75rem; color: #38bdf8; font-family: monospace; }
 
-        /* Пакетний режим (Batch) */
         #batchView { display: none; width: 100%; max-width: 800px; }
         .batch-card { background: var(--panel); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); }
         .batch-files-list { max-height: 250px; overflow-y: auto; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
         .batch-item { display: flex; justify-content: space-between; align-items: center; background: #0b0f19; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; border: 1px solid var(--border); }
 
-        /* Модалка водяного знака */
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
         .modal-content { background: var(--panel); padding: 1.5rem; border-radius: 10px; max-width: 400px; width: 90%; border: 1px solid var(--border); }
         .modal-content h3 { margin-bottom: 1rem; font-size: 1.1rem; }
@@ -92,15 +94,17 @@
     <header>
         <div class="logo-box">
             <div class="logo">🛡️ OpSec Studio</div>
-            <span class="badge-safe">100% Client-Side</span>
+            <span class="badge-safe">100% Offline AI</span>
             <div class="tabs">
                 <button class="tab-btn active" id="tabEditorBtn">🎨 Редактор</button>
                 <button class="tab-btn" id="tabBatchBtn">📦 Пакетна обробка</button>
             </div>
         </div>
 
-        <!-- Інструменти Редактора -->
         <div class="toolbar" id="editorToolbar" style="display: none;">
+            <!-- AI кнопка -->
+            <button class="btn-ai" id="aiFaceBtn" title="Знайти всі обличчя через нейромережу локально">🤖 Авто-обличчя (AI)</button>
+
             <!-- Форма -->
             <div class="btn-group" id="shapeGroup">
                 <button class="shape-btn" data-shape="rect" title="Прямокутник">▭ Прямокутник</button>
@@ -113,12 +117,11 @@
                 <button class="tool-btn active" data-mode="blur" title="Розмиття">🌫️ Розмиття</button>
                 <button class="tool-btn" data-mode="pixelate" title="Пікселі">🔲 Пікселі</button>
                 <button class="tool-btn" data-mode="blackout" title="Чорна цензура">⬛ Заливка</button>
-                <button class="tool-btn" data-mode="colorfill" title="Колірне маскування (під фон)">🎨 Колір</button>
+                <button class="tool-btn" data-mode="colorfill" title="Колірне маскування">🎨 Колір</button>
                 <button class="tool-btn" data-mode="sticker" title="Стікер">🎭 Стікер</button>
                 <button class="tool-btn" data-mode="crop" title="Кадрування">✂️ Crop</button>
             </div>
 
-            <!-- Додаткові контролери (динамічні) -->
             <input type="color" id="fillColorPicker" value="#4a5568" title="Колір для маскування" style="display:none; width:30px; height:26px; padding:0; border:none; border-radius:4px; cursor:pointer;">
             
             <select id="stickerSelect" style="display: none;">
@@ -151,12 +154,11 @@
     </header>
 
     <main>
-        <!-- Вигляд 1: Поодинокий редактор -->
         <div id="editorView">
             <div class="drop-area" id="dropArea">
                 <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">📷</div>
-                <h2>Очищення EXIF & Маскування</h2>
-                <p>Перетягніть фото або натисніть <b>Ctrl + V</b> для вставки скріншота з буфера обміну.</p>
+                <h2>Очищення EXIF & AI Маскування</h2>
+                <p>Перетягніть фото або натисніть <b>Ctrl + V</b> для вставки скріншота.<br>Нейромережа працює повністю локально у вашому браузері.</p>
                 <label class="file-btn" style="display: inline-block;">
                     Обрати файл
                     <input type="file" id="fileInput" accept="image/jpeg, image/png, image/webp">
@@ -169,7 +171,6 @@
             </div>
         </div>
 
-        <!-- Вигляд 2: Пакетна обробка -->
         <div id="batchView">
             <div class="batch-card">
                 <h2>📦 Пакетне очищення та стиснення</h2>
@@ -197,7 +198,6 @@
         </div>
     </main>
 
-    <!-- Нижня панель експорту редактора -->
     <div class="export-bar" id="exportBar" style="display: none;">
         <div class="export-controls">
             <div style="display: flex; align-items: center; gap: 0.35rem;">
@@ -231,7 +231,7 @@
         </div>
 
         <div style="display: flex; gap: 0.5rem;">
-            <button class="btn-action" id="copyClipboardBtn" title="Копіювати в буфер для вставки в Telegram/CMS">📋 Скопіювати</button>
+            <button class="btn-action" id="copyClipboardBtn" title="Копіювати в буфер (Ctrl+C)">📋 Скопіювати</button>
             <button class="btn-download" id="downloadBtn">💾 Зберегти</button>
         </div>
     </div>
@@ -264,10 +264,9 @@
         </div>
     </div>
 
-    <div class="hint" id="statusHint">Затисніть ліву кнопку миші для маскування</div>
+    <div class="hint" id="statusHint">Затисніть ліву кнопку миші для маскування або натисніть «Авто-обличчя»</div>
 
     <script>
-        // DOM елементи
         const tabEditorBtn = document.getElementById('tabEditorBtn');
         const tabBatchBtn = document.getElementById('tabBatchBtn');
         const editorView = document.getElementById('editorView');
@@ -283,6 +282,7 @@
         const overlay = document.getElementById('overlayCanvas');
         const statusHint = document.getElementById('statusHint');
 
+        const aiFaceBtn = document.getElementById('aiFaceBtn');
         const strengthSlider = document.getElementById('strengthSlider');
         const strengthLabel = document.getElementById('strengthLabel');
         const strengthControl = document.getElementById('strengthControl');
@@ -305,7 +305,6 @@
         const ctx = canvas.getContext('2d');
         const oCtx = overlay.getContext('2d');
 
-        // Стан редактора
         let currentMode = 'blur';
         let currentShape = 'ellipse';
         let originalImage = null;
@@ -314,6 +313,7 @@
         let isDrawing = false;
         let startX = 0, startY = 0;
         let brushPoints = [];
+        let blazeModel = null; // Кеш нейромережі
 
         // Перемикання вкладок
         tabEditorBtn.addEventListener('click', () => {
@@ -336,9 +336,7 @@
             exportBar.style.display = 'none';
         });
 
-        // ----------------------------------------------------
-        // ЗАВАНТАЖЕННЯ З ФАЙЛУ ТА З БУФЕРА ОБМІНУ (Ctrl + V)
-        // ----------------------------------------------------
+        // Завантаження фото
         dropArea.addEventListener('click', () => fileInput.click());
         dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover'); });
         dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
@@ -393,7 +391,55 @@
         }
 
         // ----------------------------------------------------
-        // ПАНЕЛЬ ІНСТРУМЕНТІВ ТА ПЕРЕМИКАЧІ
+        // ЛОКАЛЬНИЙ AI: АВТОМАТИЧНЕ ВИЯВЛЕННЯ ОБЛИЧ (BLAZEFACE)
+        // ----------------------------------------------------
+        aiFaceBtn.addEventListener('click', async () => {
+            if (!canvas.width) return;
+            const origText = aiFaceBtn.innerHTML;
+            aiFaceBtn.innerHTML = '⏳ AI аналізує...';
+            aiFaceBtn.disabled = true;
+
+            try {
+                if (!blazeModel) {
+                    blazeModel = await blazeface.load();
+                }
+
+                // Виконуємо розпізнавання локально на полотні
+                const predictions = await blazeModel.estimateFaces(canvas, false);
+
+                if (!predictions || predictions.length === 0) {
+                    alert('Облич не виявлено (або вони занадто повернуті/дрібні). Спробуйте виділити вручну.');
+                } else {
+                    predictions.forEach(pred => {
+                        const start = pred.topLeft;
+                        const end = pred.bottomRight;
+                        const w = end[0] - start[0];
+                        const h = end[1] - start[1];
+
+                        // Невеликий запас навколо обличчя для надійності
+                        const padX = w * 0.18;
+                        const padY = h * 0.18;
+                        const x = Math.max(0, start[0] - padX);
+                        const y = Math.max(0, start[1] - padY);
+                        const boxW = Math.min(canvas.width - x, w + padX * 2);
+                        const boxH = Math.min(canvas.height - y, h + padY * 2);
+
+                        // Застосовуємо активний режим маскування
+                        applyEffect(x, y, boxW, boxH, false);
+                    });
+                    pushHistory(); // Зберігаємо результат для Undo
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Помилка роботи локального ШІ: ' + err.message);
+            } finally {
+                aiFaceBtn.innerHTML = origText;
+                aiFaceBtn.disabled = false;
+            }
+        });
+
+        // ----------------------------------------------------
+        // ПАНЕЛЬ ІНСТРУМЕНТІВ
         // ----------------------------------------------------
         document.querySelectorAll('.shape-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -502,7 +548,7 @@
             } else if (currentShape === 'brush') {
                 if (brushPoints.length > 1) applyBrushEffect();
             } else if (w > 4 && h > 4) {
-                applyEffect(x, y, w, h);
+                applyEffect(x, y, w, h, true);
             }
         });
 
@@ -512,9 +558,10 @@
             else if (shape === 'ellipse') targetCtx.ellipse(x + w/2, y + h/2, Math.max(0, w/2), Math.max(0, h/2), 0, 0, Math.PI * 2);
         }
 
-        // Застосування прямокутних/овальних ефектів
-        function applyEffect(x, y, w, h) {
+        // Застосування ефектів
+        function applyEffect(x, y, w, h, saveHistory = true) {
             const strength = parseInt(strengthSlider.value, 10);
+            const shapeToUse = (currentShape === 'brush') ? 'ellipse' : currentShape;
 
             if (currentMode === 'sticker') {
                 ctx.save();
@@ -541,7 +588,7 @@
                 const mCtx = maskCanvas.getContext('2d');
                 mCtx.filter = `blur(${Math.max(4, Math.floor(blurRadius * 0.5))}px)`;
                 mCtx.fillStyle = '#fff';
-                createPath(mCtx, x - cropX, y - cropY, w, h, currentShape);
+                createPath(mCtx, x - cropX, y - cropY, w, h, shapeToUse);
                 mCtx.fill();
 
                 bCtx.filter = 'none';
@@ -550,7 +597,7 @@
                 ctx.drawImage(blurCanvas, cropX, cropY);
             } else if (currentMode === 'pixelate') {
                 ctx.save();
-                createPath(ctx, x, y, w, h, currentShape);
+                createPath(ctx, x, y, w, h, shapeToUse);
                 ctx.clip();
                 const sample = Math.max(2, Math.floor(strength * (canvas.width / 1000)));
                 const off = document.createElement('canvas');
@@ -563,16 +610,15 @@
                 ctx.restore();
             } else if (currentMode === 'blackout' || currentMode === 'colorfill') {
                 ctx.save();
-                createPath(ctx, x, y, w, h, currentShape);
+                createPath(ctx, x, y, w, h, shapeToUse);
                 ctx.fillStyle = (currentMode === 'colorfill') ? fillColorPicker.value : '#000000';
                 ctx.fill();
                 ctx.restore();
             }
 
-            pushHistory();
+            if (saveHistory) pushHistory();
         }
 
-        // Застосування вільного пензля
         function applyBrushEffect() {
             const bWidth = Math.max(5, parseInt(strengthSlider.value, 10) * (canvas.width / 500));
             ctx.save();
@@ -597,7 +643,6 @@
             pushHistory();
         }
 
-        // Кадрування (Crop)
         function applyCrop(x, y, w, h) {
             const croppedData = ctx.getImageData(x, y, w, h);
             canvas.width = w; canvas.height = h;
@@ -720,7 +765,7 @@
         customWidthInput.addEventListener('input', updateDimensionsInfo);
         qualitySlider.addEventListener('input', () => qualityVal.textContent = qualitySlider.value + '%');
 
-        // Копіювання чистого зображення в буфер (Ctrl+C для Telegram/CMS)
+        // Копіювання в буфер обміну
         copyClipboardBtn.addEventListener('click', () => {
             const target = getTargetDimensions();
             const expCanvas = document.createElement('canvas');
@@ -739,7 +784,7 @@
             }, 'image/png');
         });
 
-        // Збереження файлу
+        // Завантаження файлу
         downloadBtn.addEventListener('click', () => {
             const target = getTargetDimensions();
             const format = exportFormat.value;
@@ -846,7 +891,6 @@
                     let targetW = img.naturalWidth;
                     let targetH = img.naturalHeight;
                     
-                    // За замовчуванням обмежуємо макс ширину 1920px для вебу
                     if (targetW > 1920) {
                         targetW = 1920;
                         targetH = Math.round(img.naturalHeight * (1920 / img.naturalWidth));
