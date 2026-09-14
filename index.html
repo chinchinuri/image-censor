@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpSec Media Studio — Держспецзв'язок</title>
-    <!-- Локальний AI для виявлення облич (100% у браузері через TensorFlow.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js"></script>
+    <!-- Стабільні CDN-бібліотеки локального AI (100% Client-Side) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
     <!-- JSZip для пакетного експорту в ZIP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
@@ -313,7 +313,7 @@
         let isDrawing = false;
         let startX = 0, startY = 0;
         let brushPoints = [];
-        let blazeModel = null; // Кеш нейромережі
+        let blazeModel = null;
 
         // Перемикання вкладок
         tabEditorBtn.addEventListener('click', () => {
@@ -349,7 +349,6 @@
         fileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
         changeFileInput.addEventListener('change', (e) => { if (e.target.files.length) loadImage(e.target.files[0]); });
 
-        // Вставка скріншоту через Ctrl+V
         window.addEventListener('paste', (e) => {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (const item of items) {
@@ -391,8 +390,69 @@
         }
 
         // ----------------------------------------------------
-        // ЛОКАЛЬНИЙ AI: АВТОМАТИЧНЕ ВИЯВЛЕННЯ ОБЛИЧ (BLAZEFACE)
+        // НАДІЙНИЙ ЛОКАЛЬНИЙ ДЕТЕКТОР ОБЛИЧ (NATIVE + BLAZEFACE FALLBACK)
         // ----------------------------------------------------
+        function loadExternalScript(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) return resolve();
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('Не вдалося завантажити ' + src));
+                document.head.appendChild(s);
+            });
+        }
+
+        async function detectFacesOnCanvas() {
+            const detected = [];
+
+            // 1. Апаратний детектор браузера (якщо є)
+            if ('FaceDetector' in window) {
+                try {
+                    const nativeDetector = new window.FaceDetector({ fastMode: false, maxDetectedFaces: 50 });
+                    const faces = await nativeDetector.detect(canvas);
+                    if (faces && faces.length > 0) {
+                        faces.forEach(f => {
+                            detected.push({ x: f.boundingBox.x, y: f.boundingBox.y, w: f.boundingBox.width, h: f.boundingBox.height });
+                        });
+                        return detected;
+                    }
+                } catch (e) {
+                    console.warn('Native FaceDetector failed, switching to TFJS:', e);
+                }
+            }
+
+            // 2. Якщо blazeface ще не підвантажився з CDN — завантажуємо динамічно
+            if (typeof window.blazeface === 'undefined') {
+                await loadExternalScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
+                await loadExternalScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js');
+            }
+
+            if (typeof window.blazeface === 'undefined') {
+                throw new Error('Бібліотека BlazeFace недоступна. Перевірте зʼєднання з мережею.');
+            }
+
+            if (!blazeModel) {
+                blazeModel = await window.blazeface.load();
+            }
+
+            const predictions = await blazeModel.estimateFaces(canvas, false);
+            if (predictions && predictions.length > 0) {
+                predictions.forEach(pred => {
+                    const start = pred.topLeft;
+                    const end = pred.bottomRight;
+                    detected.push({
+                        x: start[0],
+                        y: start[1],
+                        w: end[0] - start[0],
+                        h: end[1] - start[1]
+                    });
+                });
+            }
+
+            return detected;
+        }
+
         aiFaceBtn.addEventListener('click', async () => {
             if (!canvas.width) return;
             const origText = aiFaceBtn.innerHTML;
@@ -400,38 +460,26 @@
             aiFaceBtn.disabled = true;
 
             try {
-                if (!blazeModel) {
-                    blazeModel = await blazeface.load();
-                }
+                const faces = await detectFacesOnCanvas();
 
-                // Виконуємо розпізнавання локально на полотні
-                const predictions = await blazeModel.estimateFaces(canvas, false);
-
-                if (!predictions || predictions.length === 0) {
+                if (!faces || faces.length === 0) {
                     alert('Облич не виявлено (або вони занадто повернуті/дрібні). Спробуйте виділити вручну.');
                 } else {
-                    predictions.forEach(pred => {
-                        const start = pred.topLeft;
-                        const end = pred.bottomRight;
-                        const w = end[0] - start[0];
-                        const h = end[1] - start[1];
+                    faces.forEach(face => {
+                        const padX = face.w * 0.20;
+                        const padY = face.h * 0.25;
+                        const x = Math.max(0, face.x - padX);
+                        const y = Math.max(0, face.y - padY * 0.8);
+                        const boxW = Math.min(canvas.width - x, face.w + padX * 2);
+                        const boxH = Math.min(canvas.height - y, face.h + padY * 2);
 
-                        // Невеликий запас навколо обличчя для надійності
-                        const padX = w * 0.18;
-                        const padY = h * 0.18;
-                        const x = Math.max(0, start[0] - padX);
-                        const y = Math.max(0, start[1] - padY);
-                        const boxW = Math.min(canvas.width - x, w + padX * 2);
-                        const boxH = Math.min(canvas.height - y, h + padY * 2);
-
-                        // Застосовуємо активний режим маскування
                         applyEffect(x, y, boxW, boxH, false);
                     });
-                    pushHistory(); // Зберігаємо результат для Undo
+                    pushHistory();
                 }
             } catch (err) {
                 console.error(err);
-                alert('Помилка роботи локального ШІ: ' + err.message);
+                alert('Помилка локального ШІ: ' + err.message);
             } finally {
                 aiFaceBtn.innerHTML = origText;
                 aiFaceBtn.disabled = false;
@@ -473,9 +521,6 @@
             };
         }
 
-        // ----------------------------------------------------
-        // МАЛЮВАННЯ НА ПОЛОТНІ (Mouse & Brush)
-        // ----------------------------------------------------
         canvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const coords = getCanvasCoords(e);
@@ -558,7 +603,6 @@
             else if (shape === 'ellipse') targetCtx.ellipse(x + w/2, y + h/2, Math.max(0, w/2), Math.max(0, h/2), 0, 0, Math.PI * 2);
         }
 
-        // Застосування ефектів
         function applyEffect(x, y, w, h, saveHistory = true) {
             const strength = parseInt(strengthSlider.value, 10);
             const shapeToUse = (currentShape === 'brush') ? 'ellipse' : currentShape;
@@ -765,7 +809,6 @@
         customWidthInput.addEventListener('input', updateDimensionsInfo);
         qualitySlider.addEventListener('input', () => qualityVal.textContent = qualitySlider.value + '%');
 
-        // Копіювання в буфер обміну
         copyClipboardBtn.addEventListener('click', () => {
             const target = getTargetDimensions();
             const expCanvas = document.createElement('canvas');
@@ -784,7 +827,6 @@
             }, 'image/png');
         });
 
-        // Завантаження файлу
         downloadBtn.addEventListener('click', () => {
             const target = getTargetDimensions();
             const format = exportFormat.value;
